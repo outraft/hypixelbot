@@ -19,8 +19,8 @@ async def setup_hook():
 @bot.event
 async def on_ready():
 	sync = await bot.tree.sync()
-	print(f"{len(sync)} tane global komut(lar)ı sync edildi.")
-	print(f"{bot.user} olarak giriş yapıldı!")
+	print(f"{len(sync)} global commands synced.")
+	print(f"Logged on as: {bot.user}")
 
 bot.setup_hook = setup_hook
 bot.run(os.getenv("TOKEN"))
