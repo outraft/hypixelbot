@@ -9,7 +9,7 @@ A silly litte project to learn about API's and discord interactions
 
 ## How can I run the bot?
 
-Firstly, thank you for giving my bot a chance! :shipit:
+Firstly, thank you for giving my bot a chance! :shipit:\
 Let me show you the steps!
 1. Install the folders to a convinient place.
 2. Run the command `pip install -r requirements.txt` at **the file location** - do not play dumb.
