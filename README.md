@@ -32,7 +32,7 @@ That is it! Run the commands whenever and however you like!
   Auction UUID\
   Player UUID\
 /news -> Skyblock news.\
-/mayor -> Mayor and/or election data.\
+/mayor -> Mayor and/or election data.
 > Might add more, might not.
 
 Anyways, since you read all of this nonsense here is a picture of a car (not mine)
