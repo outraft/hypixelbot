@@ -34,6 +34,10 @@ That is it! Run the commands whenever and however you like!
 /news -> Skyblock news.
 /mayor -> Mayor and/or election data.
 > Might add more, might not.
+
 Anyways, since you read all of this nonsense here is a picture of a car (not mine)
-![Fake car!](https://i.imgur.com/6FBBzb9.png)
-![Real car!](https://www.wondercide.com/cdn/shop/articles/Upside_down_gray_cat.png?v=1685551065)
+
+<img src="https://i.imgur.com/6FBBzb9.png" alt="Fake car!" width="300"/>
+
+<img src="https://www.wondercide.com/cdn/shop/articles/Upside_down_gray_cat.png?v=1685551065" alt="Real car!" width="300"/>
+
