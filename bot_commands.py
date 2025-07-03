@@ -32,9 +32,6 @@ def remove_minecraft_formatting(text):
 class BotCommands(commands.Cog):
 	def __init__(self, bot):
 		self.bot = bot
-	@app_commands.command(name="test", description="test")
-	async def test(self, interaction: discord.Interaction):
-		await interaction.response.send_message("saw you!🥀")
 	@app_commands.command(name="importantplayers", description="shows important players set!")
 	async def importantplayers(self, interaction: discord.Interaction):
 		results = uuidcache.find().limit(5)
