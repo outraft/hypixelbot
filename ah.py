@@ -66,6 +66,7 @@ def clean_name(name):
 class ah(commands.Cog):
 	def __init__(self, bot):
 		self.bot = bot
+
 	@app_commands.command(name="ah", description="Check the current AH!")
 	async def ah(self, interaction: discord.Interaction):
 		await interaction.response.defer()
@@ -85,11 +86,11 @@ class ah(commands.Cog):
 			}
 			res = req.get(url, params=params)
 			if res.status_code == 404:
-				await interaction.edit_original_response("The provided page does not exist!", ephemeral=True)
+				await interaction.edit_original_response(content="The provided page does not exist!", ephemeral=True)
 			elif res.status_code == 422:
-				await interaction.edit_original_response("The page provided is invalid", ephemeral=True)
+				await interaction.edit_original_response(content="The page provided is invalid", ephemeral=True)
 			elif res.status_code == 503:
-				await interaction.edit_original_response("The data is not ready yet, please try again later!")
+				await interaction.edit_original_response(content="The data is not ready yet, please try again later!")
 			else:
 				data = res.json()
 				ahcache.replace_one(
@@ -103,7 +104,7 @@ class ah(commands.Cog):
 				)
 				print("pulled data")
 		# data problem with respect to cache is solved above
-		pages = [data['auctions'][i:PAGE_SIZE+i] for i in range(0, data['totalAuctions'], PAGE_SIZE)]
+		pages = [data['auctions'][i:i+PAGE_SIZE] for i in range(0, data['totalAuctions'], PAGE_SIZE)]
 		curr = 0
 		price_groups = defaultdict(list)
 		for auction in data['auctions']:
@@ -178,6 +179,172 @@ class ah(commands.Cog):
 					curr = (curr - 1) % len(pages)
 
 				await interaction.edit_original_response(embed=make_embed(curr, summary_lines))
+				await message.remove_reaction(reaction.emoji, user)
+			except asyncio.TimeoutError:
+				await message.clear_reactions()
+				break
+	@app_commands.command(name="dah", description="Check a single auction!")
+	async def dah(self, interaction: discord.Interaction, playerUUID: str = None, profileUUID: str = None, auctionUUID: str = None):
+		filled = [bool(playerUUID), bool(profileUUID), bool(auctionUUID)]
+		if sum(filled) != 1:
+			await interaction.response.send_message("Please enter only **ONE** arguments", ephemeral = True)
+			return
+		await interaction.response.defer()
+		cached_data = ahcache.find_one({"_id":"ah"})
+		cached = cached_data['data']
+		cached_ts = cached_data['timestamp']
+		if cached_ts.tzinfo is None:
+			cached_ts.replace(tzinfo=timezone.utc)
+		if datetime.now(timezone.utc) - cached_ts < timedelta(seconds=5):
+			data = cached
+		else:
+			url = "https://api.hypixel.net/v2/skyblock/auction"
+			params = {
+				"key": hypixelkey
+			}
+			res = req.get(url, params=params)
+			if res.status_code in [400, 403, 422, 449]:
+				await interaction.edit_original_response(content=
+					f"A error occured! Possible causes are:\n"
+					f"Data missing, are you sure you added a single field?\n"
+					f"Access is forbidden, likely due to a invalid API key.\n"
+					f"Some data provided are invalid, are you sure that you used the correct UUID?\n"
+					f"A request limit has been reached, please try again later."
+				)
+			else:
+				data = res.json()
+		if playerUUID:
+			playerauctions = []
+			for auctions in data['auctions']:
+				if auctions['auctioneer'] == playerUUID:
+					playerauctions.append(auctions)
+			if len(playerauctions) == 0:
+				await interaction.edit_original_response(content=f"No auction found with the current player UUID ({playerUUID})")
+				return
+			pages = [playerauctions[i:i+PAGE_SIZE] for i in range(0, len(playerauctions), PAGE_SIZE)]
+			curr = 0
+			def make_embed(page_index):
+				embed = discord.Embed(title=f"{playerUUID}'s auctions | Page {page_index+1} out of {len(pages)}")
+				page = pages[page_index]
+				start_idx = page_index * PAGE_SIZE + 1
+				for idx, auct in enumerate(page, start=start_idx):
+					item_name = auct.get("item_name", "Unknown")
+					item_desc = auct.get("item_lore", "No description for item!")
+					clear_name = remove_minecraft_formatting(item_name)
+					clear_desc = remove_minecraft_formatting(item_desc)
+					sbid = auct.get("starting_bid")
+					tier = auct.get("tier", "NULL")
+					isbin = auct.get("bin", False)
+					if isbin:
+						price = sbid
+					else:
+						bids = auct.get("bids", [])
+						if bids:
+							price = bids[-1]['amount']
+						else:
+							price = sbid
+					value = f"{clear_desc}\n{price}"
+					if idx < start_idx + len(pages[page_index]) - 1 :
+						value += "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+					embed.add_field(
+						name=f"Auction {idx}:{clear_name} | {tier}",
+						value=value
+					)
+				return embed
+			await interaction.edit_original_response(embed=make_embed(curr))
+		elif profileUUID:
+			playerauctions = []
+			for auction in data['auctions']:
+				if auction.get("profile_id") == profileUUID:
+					playerauctions.append(auction)
+			if len(playerauctions) == 0:
+				await interaction.edit_original_response(content=f"No auctions found for the given profile UUID ({profileUUID})")
+				return
+			pages = [playerauctions[i:i+PAGE_SIZE] for i in range(0, len(playerauctions), PAGE_SIZE)]
+			curr = 0
+			def make_embed(page_index):
+				embed = discord.Embed(title=f"Profile UUID: {profileUUID} | Page {(page_index+1)} out of {len(pages)}")
+				page = pages[page_index]
+				start_idx = page_index * PAGE_SIZE + 1
+				for idx, auct in enumerate(page, start=start_idx):
+					item_name = auct.get("item_name", "Unknown")
+					item_desc = auct.get("item_lore", "No description for item!")
+					clear_name = remove_minecraft_formatting(item_name)
+					clear_desc = remove_minecraft_formatting(item_desc)
+					sbid = auct.get("starting_bid")
+					tier = auct.get("tier", "NULL")
+					isbin = auct.get("bin", False)
+					if isbin:
+						price = sbid
+					else:
+						bids = auct.get("bids", [])
+						if bids:
+							price = bids[-1]['amount']
+						else:
+							price = sbid
+					value = f"{clear_desc}\n{price}"
+					if idx < start_idx + len(pages[page_index]) - 1 :
+						value += "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+					embed.add_field(
+						name=f"Auction {idx}:{clear_name} | {tier}",
+						value=value
+					)
+				return embed
+			await interaction.edit_original_response(embed=make_embed(curr))
+		elif auctionUUID:
+			playerauctions = []
+			for auction in data['auctions']:
+				if auction.get('uuid') == auctionUUID:
+					playerauctions.append(auction)
+			if len(playerauctions) == 0:
+				await interaction.edit_original_response(content=f"No auctions found for the given auction UUID ({auctionUUID})")
+				return
+			pages = [playerauctions[i:i+PAGE_SIZE] for i in range(0, len(playerauctions), PAGE_SIZE)]
+			curr = 0
+			def make_embed(page_index):
+				embed = discord.Embed(title=f"Auction ID: {auctionUUID} | Page {(page_index+1)} out of {len(pages)}")
+				page = pages[page_index]
+				start_idx = page_index * PAGE_SIZE + 1
+				for idx, auct in enumerate(page, start=start_idx):
+					item_name = auct.get("item_name", "Unknown")
+					item_desc = auct.get("item_lore", "No description for item!")
+					clear_name = remove_minecraft_formatting(item_name)
+					clear_desc = remove_minecraft_formatting(item_desc)
+					sbid = auct.get("starting_bid")
+					tier = auct.get("tier", "NULL")
+					isbin = auct.get("bin", False)
+					if isbin:
+						price = sbid
+					else:
+						bids = auct.get("bids", [])
+						if bids:
+							price = bids[-1]['amount']
+						else:
+							price = sbid
+					value = f"{clear_desc}\n{price}"
+					if idx < start_idx + len(pages[page_index]) - 1 :
+						value += "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+					embed.add_field(
+						name=f"Auction {idx}:{clear_name} | {tier}",
+						value=value
+					)
+				return embed
+			await interaction.edit_original_response(embed=make_embed(curr))
+		message = await interaction.original_response()
+
+		await message.add_reaction("⬅️")
+		await message.add_reaction("➡️")
+		def check(reaction, user):
+			return user == interaction.user and str(reaction.emoji) in ["⬅️", "➡️"] and reaction.message.id == message.id
+		while True:
+			try:
+				reaction, user = await self.bot.wait_for("reaction_add", timeout=60.0, check=check)
+				if str(reaction.emoji) == "➡️":
+					curr = (curr + 1) % len(pages)
+				elif str(reaction.emoji) == "⬅️":
+					curr = (curr - 1) % len(pages)
+
+				await interaction.edit_original_response(embed=make_embed(curr))
 				await message.remove_reaction(reaction.emoji, user)
 			except asyncio.TimeoutError:
 				await message.clear_reactions()
